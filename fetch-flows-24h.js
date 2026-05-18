@@ -13,7 +13,7 @@ const { getClient, resolveBoxGid } = require('./cli/src/api/client');
 const CHUNK_HOURS = 1;
 const TOTAL_HOURS = parseInt(process.env.FETCH_HOURS || '24', 10);
 const BATCH_SIZE = 500;
-const MAX_MB = parseInt(process.env.MAX_MB || '100', 10);
+const MAX_MB = parseInt(process.env.MAX_MB || '500', 10);
 const MAX_BYTES = MAX_MB * 1024 * 1024;
 const OUTPUT_DIR = process.env.OUTPUT_DIR || '/tmp';
 const OUTPUT_FILE = path.join(OUTPUT_DIR, `flows_${new Date().toISOString().slice(0,10)}.ndjson`);
@@ -27,9 +27,8 @@ async function fetchChunk(client, gid, fromTs, toTs, label) {
 
   do {
     const params = {
-      gid,
       limit: BATCH_SIZE,
-      query: `ts:>${fromTs} ts:<${toTs}`,
+      query: `box.id:${gid} ts:${fromTs}-${toTs}`,
     };
     if (cursor) params.cursor = cursor;
 
@@ -44,8 +43,9 @@ async function fetchChunk(client, gid, fromTs, toTs, label) {
         }));
         break;
       } catch (err) {
-        if (err.response?.status === 429 && attempt < 10) {
-          process.stderr.write(`[${label}] Rate limited, retrying in ${delay / 1000}s...\n`);
+        const status = err.response?.status;
+        if ((status === 429 || status === 400) && attempt < 10) {
+          process.stderr.write(`[${label}] ${status === 429 ? 'Rate limited' : 'Timeout'}, retrying in ${delay / 1000}s...\n`);
           await new Promise(r => setTimeout(r, delay));
           delay = Math.min(delay * 2, 120000);
         } else {

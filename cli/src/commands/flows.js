@@ -19,6 +19,45 @@ function parseTime(timeStr) {
 }
 
 const Flows = {
+  report: async (options) => {
+    const gid = await resolveBoxGid(options.box, options);
+    const client = getClient(options);
+
+    const params = {};
+    if (options.day) {
+      if (!/^\d{8}$/.test(options.day)) {
+        console.error(JSON.stringify({ error: "Invalid --day. Expected YYYYMMDD (e.g. 20260520)." }));
+        process.exit(1);
+      }
+      params.day = options.day;
+    }
+
+    try {
+      const { data } = await client.get(`/boxes/${gid}/behavior-inspector/flow-report`, {
+        params,
+        responseType: 'text',
+        transformResponse: [(d) => d]
+      });
+
+      if (options.output) {
+        const fs = require('fs');
+        fs.writeFileSync(options.output, data);
+        console.log(`Wrote report to ${options.output}`);
+      } else {
+        process.stdout.write(data);
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const body = err.response?.data;
+      let parsed = body;
+      if (typeof body === 'string') {
+        try { parsed = JSON.parse(body); } catch (_) { /* keep raw text */ }
+      }
+      console.error(JSON.stringify({ error: "Flow report fetch failed", status, details: parsed || err.message }));
+      process.exit(1);
+    }
+  },
+
   list: async (options) => {
     const gid = await resolveBoxGid(options.box, options);
     const client = getClient(options);

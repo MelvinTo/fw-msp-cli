@@ -79,6 +79,16 @@ devices
 const flows = program.command('flows').description('Manage network flows');
 
 flows
+  .command('report')
+  .description('get raw flow report')
+  .option('--box <name|gid>', 'Box Name or GID')
+  .option('--day <YYYYMMDD>', 'Report day in YYYYMMDD format (defaults to today, server local time)')
+  .option('--output <file>', 'Write report to file instead of stdout')
+  .action((options) => {
+    Flows.report({ ...options, ...program.opts() });
+  });
+
+flows
   .command('list')
   .description('List network flows with flexible filtering')
   .option('--box <name|gid>', 'Box Name or GID')

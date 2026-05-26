@@ -1,0 +1,19 @@
+## Daily Security Report — 2026-05-26 — box `WXA-G3`
+
+**Assessment:** Chinese domestic network with heavy video streaming (Douyin/TikTok, iQiyi) and routine device telemetry; three items require confirmation — bare-IP upload, beaconing cluster, and backupserver port 81 pattern.
+
+Status: 34,063 flows · 0.0% blocked · 23 items flagged · heavy CN video streaming, routine IoT telemetry
+
+🔴 Worth a look
+
+- `C46254581` → `58.220.45.181:7007/tcp` (10.47 MB, CN, bare IP) — large upload to an unresolved IP address on a non-standard port. No domain name means this is either a direct-to-IP service (VPN, private backup, or custom app) or a potential evasion. Confirm what `C46254581` is and whether `58.220.45.181:7007` is an authorized internal or partner service.
+
+- **Beaconing cluster (12 flows)** — `C46254581`, `Honor_7X-652efe753b2d38ef`, `MiWiFi-R4CM`, and `CS-C2C-31WFR-561988155` all show 5–15 minute sessions with minimal byte transfer (0.1–35 KB) across 5–19 separate connections, all to CN IPs or domains (`ixigua.com`, `douyin.com`, `ecombdapi.com`). This pattern is consistent with analytics SDKs or device telemetry, but the cluster timing (all within one hour on 05-25 17:01–17:03) and the mix of bare IPs + domains warrants a check: confirm these devices are not compromised and that the apps running on them (especially on the Honor phone and MiWiFi router) are legitimate.
+
+- **Backupserver port 81 (10 flows)** — `C46254581` and `CS-C2C-31WFR-561988155` repeatedly contact `backupserver:81/tcp` with small, consistent uploads (7.6–43.7 KB) across multiple times over 24 hours. Port 81 is non-standard for HTTP and suggests a custom backup or management protocol. Verify that `backupserver` is an authorized internal service and that the port 81 traffic is intentional.
+
+🟢 Routine IoT and telemetry
+
+- **Video streaming (2 domains, 502 MB)** — `bdxiguavod.com` (355.4 MB, 337 flows) and `douyinvod.com` (146.8 MB, 402 flows) are Douyin/TikTok and iQiyi video CDNs. Normal for a household with Chinese mobile devices.
+- **Device telemetry & analytics (3 domains, 115 MB)** — `jsinfo.net`, `smtcdns.com`, `dahhxxttxs.com` are typical Chinese app analytics and tracking domains (Tencent, Alibaba ecosystem). Expected on Honor phones and MiWiFi routers.
+- **Top uploaders** — `WXA-FP49` (87.8 MB), `Honor_7X-652efe753b2d38ef` (40.0 MB), `C46254581` (19.6 MB) — consistent with video streaming and device check-ins.

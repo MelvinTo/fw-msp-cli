@@ -22,19 +22,9 @@ const Flows = {
   report: async (options) => {
     const gid = await resolveBoxGid(options.box, options);
     const client = getClient(options);
-
-    const params = {};
-    if (options.day) {
-      if (!/^\d{8}$/.test(options.day)) {
-        console.error(JSON.stringify({ error: "Invalid --day. Expected YYYYMMDD (e.g. 20260520)." }));
-        process.exit(1);
-      }
-      params.day = options.day;
-    }
-
+    console.log('Fetching raw flow report (this may take a moment)...');
     try {
       const { data } = await client.get(`/boxes/${gid}/behavior-inspector/flow-report`, {
-        params,
         responseType: 'text',
         transformResponse: [(d) => d]
       });
@@ -54,6 +44,58 @@ const Flows = {
         try { parsed = JSON.parse(body); } catch (_) { /* keep raw text */ }
       }
       console.error(JSON.stringify({ error: "Flow report fetch failed", status, details: parsed || err.message }));
+      process.exit(1);
+    }
+  },
+
+  aiReport: async (options) => {
+    const gid = await resolveBoxGid(options.box, options);
+    const client = getClient(options);
+    console.log('Starting AI flow report analysis (this may take a moment)...');
+    try {
+      // Step 1: Start the async AI task
+      const { data: task } = await client.post('/fireai/ask', { type: 'flow_report', meta: { gid }, ignoreCache: true });
+      const taskId = task.taskId;
+      if (!taskId) {
+        throw new Error(`Unexpected response from /fireai/ask: ${JSON.stringify(task)}`);
+      }
+      process.stderr.write(`Task started (id: ${taskId}), waiting for result...\n`);
+
+      // Step 2: Poll /tasks/:id until status is 'succeeded'
+      const content = await new Promise((resolve, reject) => {
+        const timer = setInterval(async () => {
+          try {
+            const { data: result } = await client.get(`/tasks/${taskId}`);
+            if (result.status === 'succeeded') {
+              clearInterval(timer);
+              resolve(result.result?.content ?? '');
+            } else if (result.status === 'failed' || result.status === 'error') {
+              clearInterval(timer);
+              reject(new Error(`Task ${taskId} ${result.status}: ${JSON.stringify(result.result || result.error)}`));
+            }
+            // still pending/running — keep waiting
+          } catch (err) {
+            clearInterval(timer);
+            reject(err);
+          }
+        }, 1000);
+      });
+
+      if (options.output) {
+        const fs = require('fs');
+        fs.writeFileSync(options.output, content);
+        console.log(`Wrote AI report to ${options.output}`);
+      } else {
+        process.stdout.write(content);
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const body = err.response?.data;
+      let parsed = body;
+      if (typeof body === 'string') {
+        try { parsed = JSON.parse(body); } catch (_) { /* keep raw text */ }
+      }
+      console.error(JSON.stringify({ error: "AI flow report fetch failed", status, details: parsed || err.message }));
       process.exit(1);
     }
   },

@@ -102,12 +102,20 @@ const mspFlows = msp.command('flows').description('MSP flow operations');
 
 mspFlows
   .command('report')
-  .description('get raw flow report')
+  .description('Get latest 24 hours raw flow report')
   .option('--box <name|gid>', 'Box Name or GID')
-  .option('--day <YYYYMMDD>', 'Report day in YYYYMMDD format (defaults to today, server local time)')
   .option('--output <file>', 'Write report to file instead of stdout')
   .action((options) => {
     Flows.report({ ...options, ...program.opts() });
+  });
+
+mspFlows
+  .command('ai-report')
+  .description('Get AI-generated flow report for the latest 24 hours')
+  .option('--box <name|gid>', 'Box Name or GID')
+  .option('--output <file>', 'Write report to file instead of stdout')
+  .action((options) => {
+    Flows.aiReport({ ...options, ...program.opts() });
   });
 
 const rules = program.command('rules').description('Manage firewall rules');
